@@ -3,15 +3,15 @@ package com.coveo.nashorn_modules;
 import org.junit.Test;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import javax.script.ScriptEngineManager;
 
 import jdk.nashorn.api.scripting.NashornScriptEngine;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertSame;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 public class FilesystemFolderTest {
   private File file = new File("src/test/resources/com/coveo/nashorn_modules/test1");
@@ -20,7 +20,24 @@ public class FilesystemFolderTest {
   private File subfile = new File(file, "subdir");
   private File subsubfile = new File(subfile, "subsubdir");
 
-  private String rootPath = file.getAbsolutePath().substring(0, file.getAbsolutePath().indexOf(File.separator));
+  private String rootPath =
+      file.getAbsolutePath().substring(0, file.getAbsolutePath().indexOf(File.separator));
+
+  @Test
+  public void usesTimestampForValidation() throws IOException {
+    Path tempDirectory = Files.createTempDirectory("foo");
+    FilesystemFolder target =
+        FilesystemFolder.createWithValidation(tempDirectory.toFile(), "UTF-8");
+    File file = new File(tempDirectory.toFile(), "foo.js");
+    boolean created = file.createNewFile();
+    assertTrue(created);
+    String cacheValidatorBefore = target.getCacheValidator("foo.js");
+    assertNotNull(cacheValidatorBefore);
+    boolean modified = file.setLastModified(file.lastModified() + 5000);
+    assertTrue(modified);
+    String cacheValidatorAfter = target.getCacheValidator("foo.js");
+    assertNotEquals(cacheValidatorBefore, cacheValidatorAfter);
+  }
 
   @Test
   public void rootFolderHasTheExpectedProperties() {
@@ -31,7 +48,7 @@ public class FilesystemFolderTest {
 
   @Test
   public void getFileReturnsTheContentOfTheFileWhenItExists() {
-    assertTrue(root.getFile("foo.js").contains("foo"));
+    assertTrue(root.getFile("foo.js").getString().contains("foo"));
   }
 
   @Test
@@ -58,7 +75,7 @@ public class FilesystemFolderTest {
 
   @Test
   public void getFileCanBeUsedOnSubFolderIfFileExist() {
-    assertTrue(root.getFolder("subdir").getFile("bar.js").contains("bar"));
+    assertTrue(root.getFolder("subdir").getFile("bar.js").getString().contains("bar"));
   }
 
   @Test

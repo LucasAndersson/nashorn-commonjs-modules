@@ -11,14 +11,14 @@ public class ResourceFolder extends AbstractFolder {
   private String encoding;
 
   @Override
-  public String getFile(String name) {
+  public CacheableString getFile(String name) {
     InputStream stream = loader.getResourceAsStream(resourcePath + "/" + name);
     if (stream == null) {
       return null;
     }
 
     try {
-      return IOUtils.toString(stream, encoding);
+      return new CacheableString(IOUtils.toString(stream, encoding));
     } catch (IOException ex) {
       return null;
     }

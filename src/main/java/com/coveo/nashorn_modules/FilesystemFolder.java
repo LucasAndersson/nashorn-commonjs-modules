@@ -10,20 +10,22 @@ import java.io.IOException;
 public class FilesystemFolder extends AbstractFolder {
   private File root;
   private String encoding = "UTF-8";
+  private boolean validateUsingTimestamp;
 
-  private FilesystemFolder(File root, Folder parent, String path, String encoding) {
+  private FilesystemFolder(File root, Folder parent, String path, String encoding, boolean validateUsingTimestamp) {
     super(parent, path);
     this.root = root;
     this.encoding = encoding;
+    this.validateUsingTimestamp = validateUsingTimestamp;
   }
 
   @Override
-  public String getFile(String name) {
+  public CacheableString getFile(String name) {
     File file = new File(root, name);
 
     try {
       try (FileInputStream stream = new FileInputStream(file)) {
-        return IOUtils.toString(stream, encoding);
+        return new CacheableString(IOUtils.toString(stream, encoding));
       }
     } catch (FileNotFoundException ex) {
       return null;
@@ -39,11 +41,27 @@ public class FilesystemFolder extends AbstractFolder {
       return null;
     }
 
-    return new FilesystemFolder(folder, this, getPath() + name + File.separator, encoding);
+    return new FilesystemFolder(folder, this, getPath() + name + File.separator, encoding, this.validateUsingTimestamp);
+  }
+
+  @Override
+  public String getCacheValidator(String name) {
+    if (validateUsingTimestamp) {
+      File file = new File(root, name);
+      long lastModified = file.lastModified();
+      return Long.toString(lastModified);
+    } else {
+      return null;
+    }
   }
 
   public static FilesystemFolder create(File root, String encoding) {
     File absolute = root.getAbsoluteFile();
-    return new FilesystemFolder(absolute, null, absolute.getPath() + File.separator, encoding);
+    return new FilesystemFolder(absolute, null, absolute.getPath() + File.separator, encoding, false);
+  }
+
+  public static FilesystemFolder createWithValidation(File root, String encoding) {
+    File absolute = root.getAbsoluteFile();
+    return new FilesystemFolder(absolute, null, absolute.getPath() + File.separator, encoding, true);
   }
 }

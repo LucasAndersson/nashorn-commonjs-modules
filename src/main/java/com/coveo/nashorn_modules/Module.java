@@ -18,6 +18,7 @@ import jdk.nashorn.internal.runtime.ECMAException;
 
 public class Module extends SimpleBindings implements RequireFunction {
   private NashornScriptEngine engine;
+  private String effectiveFileName;
   private ScriptObjectMirror objectConstructor;
   private ScriptObjectMirror jsonConstructor;
   private ScriptObjectMirror errorConstructor;
@@ -31,6 +32,8 @@ public class Module extends SimpleBindings implements RequireFunction {
   private Object exports;
   private static ThreadLocal<Map<String, Bindings>> refCache = new ThreadLocal<>();
 
+  private String cacheValidator;
+
   public Module(
       NashornScriptEngine engine,
       Folder folder,
@@ -39,10 +42,13 @@ public class Module extends SimpleBindings implements RequireFunction {
       Bindings module,
       Bindings exports,
       Module parent,
-      Module main)
+      Module main,
+      String effectiveFileName,
+      String cacheValidator)
       throws ScriptException {
 
     this.engine = engine;
+    this.effectiveFileName = effectiveFileName;
 
     if (parent != null) {
       this.objectConstructor = parent.objectConstructor;
@@ -59,6 +65,7 @@ public class Module extends SimpleBindings implements RequireFunction {
     this.main = main != null ? main : this;
     this.module = module;
     this.exports = exports;
+    this.cacheValidator = cacheValidator;
 
     put("main", this.main.module);
 
@@ -68,6 +75,10 @@ public class Module extends SimpleBindings implements RequireFunction {
     module.put("id", filename);
     module.put("loaded", false);
     module.put("parent", parent != null ? parent.module : null);
+  }
+
+  public String getCacheValidator() {
+    return cacheValidator;
   }
 
   void setLoaded() {
@@ -169,8 +180,14 @@ public class Module extends SimpleBindings implements RequireFunction {
     String requestedFullPath = resolvedFolder.getPath() + filename;
 
     Module found = cache.get(requestedFullPath);
+
     if (found != null) {
-      return found;
+      String effectivePath = found.getEffectivePath();
+      String cacheValidator = resolvedFolder.getCacheValidator(effectivePath);
+
+      if (cacheValidator == null || cacheValidator.equals(found.getCacheValidator())) {
+        return found;
+      }
     }
 
     // First we try to load as a file, trying out various variations on the path
@@ -196,10 +213,10 @@ public class Module extends SimpleBindings implements RequireFunction {
     String[] filenamesToAttempt = getFilenamesToAttempt(filename);
     for (String tentativeFilename : filenamesToAttempt) {
 
-      String code = parent.getFile(tentativeFilename);
+      CacheableString code = parent.getFile(tentativeFilename);
       if (code != null) {
         String fullPath = parent.getPath() + tentativeFilename;
-        return compileModuleAndPutInCache(parent, fullPath, code);
+        return compileModuleAndPutInCache(parent, fullPath, code, tentativeFilename);
       }
     }
 
@@ -226,12 +243,15 @@ public class Module extends SimpleBindings implements RequireFunction {
   }
 
   private Module loadModuleThroughPackageJson(Folder parent) throws ScriptException {
-    String packageJson = parent.getFile("package.json");
-    if (packageJson == null) {
+    CacheableString file = parent.getFile("package.json");
+
+    if (file == null) {
       return null;
     }
 
+    String packageJson = file.getString();
     String mainFile = getMainFileFromPackageJson(packageJson);
+
     if (mainFile == null) {
       return null;
     }
@@ -262,32 +282,33 @@ public class Module extends SimpleBindings implements RequireFunction {
   }
 
   private Module loadModuleThroughIndexJs(Folder parent) throws ScriptException {
-    String code = parent.getFile("index.js");
+    CacheableString code = parent.getFile("index.js");
     if (code == null) {
       return null;
     }
 
-    return compileModuleAndPutInCache(parent, parent.getPath() + "index.js", code);
+    return compileModuleAndPutInCache(parent, parent.getPath() + "index.js", code, "index.js");
   }
 
   private Module loadModuleThroughIndexJson(Folder parent) throws ScriptException {
-    String code = parent.getFile("index.json");
+    CacheableString code = parent.getFile("index.json");
     if (code == null) {
       return null;
     }
 
-    return compileModuleAndPutInCache(parent, parent.getPath() + "index.json", code);
+    return compileModuleAndPutInCache(parent, parent.getPath() + "index.json", code, "index.json");
   }
 
-  private Module compileModuleAndPutInCache(Folder parent, String fullPath, String code)
+  private Module compileModuleAndPutInCache(
+      Folder parent, String fullPath, CacheableString code, String actualFileName)
       throws ScriptException {
 
     Module created;
     String lowercaseFullPath = fullPath.toLowerCase();
     if (lowercaseFullPath.endsWith(".js")) {
-      created = compileJavaScriptModule(parent, fullPath, code);
+      created = compileJavaScriptModule(parent, fullPath, code, actualFileName);
     } else if (lowercaseFullPath.endsWith(".json")) {
-      created = compileJsonModule(parent, fullPath, code);
+      created = compileJsonModule(parent, fullPath, code, actualFileName);
     } else {
       // Unsupported module type
       return null;
@@ -300,7 +321,8 @@ public class Module extends SimpleBindings implements RequireFunction {
     return created;
   }
 
-  private Module compileJavaScriptModule(Folder parent, String fullPath, String code)
+  private Module compileJavaScriptModule(
+      Folder parent, String fullPath, CacheableString code, String actualFileName)
       throws ScriptException {
 
     Bindings engineScope = engine.getBindings(ScriptContext.ENGINE_SCOPE);
@@ -313,7 +335,18 @@ public class Module extends SimpleBindings implements RequireFunction {
       exports = createSafeBindings();
     }
 
-    Module created = new Module(engine, parent, cache, fullPath, module, exports, this, this.main);
+    Module created =
+        new Module(
+            engine,
+            parent,
+            cache,
+            fullPath,
+            module,
+            exports,
+            this,
+            this.main,
+            actualFileName,
+            code.getCacheValidator());
 
     String[] split = Paths.splitPath(fullPath);
     String filename = split[split.length - 1];
@@ -332,7 +365,9 @@ public class Module extends SimpleBindings implements RequireFunction {
       ScriptObjectMirror function =
           (ScriptObjectMirror)
               engine.eval(
-                  "(function (exports, require, module, __filename, __dirname) {" + code + "\n})");
+                  "(function (exports, require, module, __filename, __dirname) {"
+                      + code.getString()
+                      + "\n})");
       function.call(created, created.exports, created, created.module, filename, dirname);
     } finally {
       engine.put(ScriptEngine.FILENAME, previousFilename);
@@ -346,12 +381,24 @@ public class Module extends SimpleBindings implements RequireFunction {
     return created;
   }
 
-  private Module compileJsonModule(Folder parent, String fullPath, String code)
+  private Module compileJsonModule(
+      Folder parent, String fullPath, CacheableString code, String actualFileName)
       throws ScriptException {
     Bindings module = createSafeBindings();
     Bindings exports = createSafeBindings();
-    Module created = new Module(engine, parent, cache, fullPath, module, exports, this, this.main);
-    created.exports = parseJson(code);
+    Module created =
+        new Module(
+            engine,
+            parent,
+            cache,
+            fullPath,
+            module,
+            exports,
+            this,
+            this.main,
+            code.getCacheValidator(),
+            actualFileName);
+    created.exports = parseJson(code.getString());
     created.setLoaded();
     return created;
   }
@@ -405,5 +452,9 @@ public class Module extends SimpleBindings implements RequireFunction {
 
   private static String[] getFilenamesToAttempt(String filename) {
     return new String[] {filename, filename + ".js", filename + ".json"};
+  }
+
+  public String getEffectivePath() {
+    return effectiveFileName;
   }
 }

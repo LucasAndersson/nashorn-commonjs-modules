@@ -5,7 +5,9 @@ public interface Folder {
 
   public String getPath();
 
-  public String getFile(String name);
+  public CacheableString getFile(String name);
+
+  public String getCacheValidator(String name);
 
   public Folder getFolder(String name);
 }

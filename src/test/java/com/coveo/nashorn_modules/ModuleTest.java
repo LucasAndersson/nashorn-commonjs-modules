@@ -20,8 +20,7 @@ import jdk.nashorn.api.scripting.NashornScriptEngine;
 import jdk.nashorn.api.scripting.ScriptObjectMirror;
 
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @RunWith(MockitoJUnitRunner.class)
 public class ModuleTest {
@@ -40,26 +39,30 @@ public class ModuleTest {
     when(root.getPath()).thenReturn("/");
     when(root.getFolder("node_modules")).thenReturn(rootnm);
     when(root.getFolder("sub1")).thenReturn(sub1);
-    when(root.getFile("file1.js")).thenReturn("exports.file1 = 'file1';");
-    when(root.getFile("file2.json")).thenReturn("{ \"file2\": \"file2\" }");
+    when(root.getFile("file1.js")).thenReturn(new CacheableString("exports.file1 = 'file1';"));
+    when(root.getFile("file2.json")).thenReturn(new CacheableString("{ \"file2\": \"file2\" }"));
     when(rootnm.getPath()).thenReturn("/node_modules/");
     when(rootnm.getParent()).thenReturn(root);
-    when(rootnm.getFile("nmfile1.js")).thenReturn("exports.nmfile1 = 'nmfile1';");
+    when(rootnm.getFile("nmfile1.js"))
+        .thenReturn(new CacheableString("exports.nmfile1 = 'nmfile1';"));
     when(rootnm.getFolder("nmsub1")).thenReturn(nmsub1);
-    when(nmsub1.getFile("nmsub1file1.js")).thenReturn("exports.nmsub1file1 = 'nmsub1file1';");
+    when(nmsub1.getFile("nmsub1file1.js"))
+        .thenReturn(new CacheableString("exports.nmsub1file1 = 'nmsub1file1';"));
     when(nmsub1.getParent()).thenReturn(rootnm);
     when(sub1.getPath()).thenReturn("/sub1/");
     when(sub1.getParent()).thenReturn(root);
     when(sub1.getFolder("sub1")).thenReturn(sub1sub1);
     when(sub1.getFolder("node_modules")).thenReturn(sub1nm);
-    when(sub1.getFile("sub1file1.js")).thenReturn("exports.sub1file1 = 'sub1file1';");
+    when(sub1.getFile("sub1file1.js"))
+        .thenReturn(new CacheableString("exports.sub1file1 = 'sub1file1';"));
     when(sub1nm.getPath()).thenReturn("/sub1/node_modules/");
     when(sub1nm.getParent()).thenReturn(sub1);
-    when(sub1nm.getFile("sub1nmfile1.js")).thenReturn("exports.sub1nmfile1 = 'sub1nmfile1';");
+    when(sub1nm.getFile("sub1nmfile1.js"))
+        .thenReturn(new CacheableString("exports.sub1nmfile1 = 'sub1nmfile1';"));
     when(sub1sub1.getPath()).thenReturn("/sub1/sub1/");
     when(sub1sub1.getParent()).thenReturn(sub1);
     when(sub1sub1.getFile("sub1sub1file1.js"))
-        .thenReturn("exports.sub1sub1file1 = 'sub1sub1file1';");
+        .thenReturn(new CacheableString("exports.sub1sub1file1 = 'sub1sub1file1';"));
 
     engine = (NashornScriptEngine) new ScriptEngineManager().getEngineByName("nashorn");
     require = Require.enable(engine, root);
@@ -121,13 +124,15 @@ public class ModuleTest {
 
   @Test
   public void itCanLoadModulesFromParentFolders() throws Throwable {
-    when(sub1.getFile("sub1file1.js")).thenReturn("exports.sub1file1 = require('../file1').file1;");
+    when(sub1.getFile("sub1file1.js"))
+        .thenReturn(new CacheableString("exports.sub1file1 = require('../file1').file1;"));
     assertEquals("file1", ((Bindings) require.require("./sub1/sub1file1.js")).get("sub1file1"));
   }
 
   @Test
   public void itCanGoUpAndDownInFolders() throws Throwable {
-    when(sub1.getFile("sub1file1.js")).thenReturn("exports.sub1file1 = require('../file1').file1;");
+    when(sub1.getFile("sub1file1.js"))
+        .thenReturn(new CacheableString("exports.sub1file1 = require('../file1').file1;"));
     assertEquals(
         "file1", ((Bindings) require.require("./sub1/../sub1/sub1file1.js")).get("sub1file1"));
   }
@@ -143,8 +148,8 @@ public class ModuleTest {
   public void itCanLoadModulesSpecifyingOnlyTheFolderWhenPackageJsonHasAMainFile()
       throws Throwable {
     Folder dir = mock(Folder.class);
-    when(dir.getFile("package.json")).thenReturn("{ \"main\": \"foo.js\" }");
-    when(dir.getFile("foo.js")).thenReturn("exports.foo = 'foo';");
+    when(dir.getFile("package.json")).thenReturn(new CacheableString("{ \"main\": \"foo.js\" }"));
+    when(dir.getFile("foo.js")).thenReturn(new CacheableString("exports.foo = 'foo';"));
     when(root.getFolder("dir")).thenReturn(dir);
     assertEquals("foo", ((Bindings) require.require("./dir")).get("foo"));
   }
@@ -155,9 +160,10 @@ public class ModuleTest {
           throws Throwable {
     Folder dir = mock(Folder.class);
     Folder lib = mock(Folder.class);
-    when(dir.getFile("package.json")).thenReturn("{ \"main\": \"lib/foo.js\" }");
+    when(dir.getFile("package.json"))
+        .thenReturn(new CacheableString("{ \"main\": \"lib/foo.js\" }"));
     when(dir.getFolder("lib")).thenReturn(lib);
-    when(lib.getFile("foo.js")).thenReturn("exports.foo = 'foo';");
+    when(lib.getFile("foo.js")).thenReturn(new CacheableString("exports.foo = 'foo';"));
     when(root.getFolder("dir")).thenReturn(dir);
     assertEquals("foo", ((Bindings) require.require("./dir")).get("foo"));
   }
@@ -170,8 +176,8 @@ public class ModuleTest {
     Folder lib = mock(Folder.class);
     when(root.getFolder("dir")).thenReturn(dir);
     when(dir.getFolder("lib")).thenReturn(lib);
-    when(dir.getFile("package.json")).thenReturn("{\"main\": \"./lib\"}");
-    when(lib.getFile("index.js")).thenReturn("exports.foo = 'foo';");
+    when(dir.getFile("package.json")).thenReturn(new CacheableString("{\"main\": \"./lib\"}"));
+    when(lib.getFile("index.js")).thenReturn(new CacheableString("exports.foo = 'foo';"));
     assertEquals("foo", ((Bindings) require.require("./dir")).get("foo"));
   }
 
@@ -181,10 +187,11 @@ public class ModuleTest {
           throws Throwable {
     Folder dir = mock(Folder.class);
     Folder lib = mock(Folder.class);
-    when(dir.getFile("package.json")).thenReturn("{ \"main\": \"lib/foo.js\" }");
+    when(dir.getFile("package.json"))
+        .thenReturn(new CacheableString("{ \"main\": \"lib/foo.js\" }"));
     when(dir.getFolder("lib")).thenReturn(lib);
-    when(lib.getFile("foo.js")).thenReturn("exports.bar = require('./bar');");
-    when(lib.getFile("bar.js")).thenReturn("exports.bar = 'bar';");
+    when(lib.getFile("foo.js")).thenReturn(new CacheableString("exports.bar = require('./bar');"));
+    when(lib.getFile("bar.js")).thenReturn(new CacheableString("exports.bar = 'bar';"));
     when(root.getFolder("dir")).thenReturn(dir);
     assertEquals("bar", ((Bindings) ((Bindings) require.require("./dir")).get("bar")).get("bar"));
   }
@@ -192,7 +199,7 @@ public class ModuleTest {
   @Test
   public void itCanLoadModulesSpecifyingOnlyTheFolderWhenIndexJsIsPresent() throws Throwable {
     Folder dir = mock(Folder.class);
-    when(dir.getFile("index.js")).thenReturn("exports.foo = 'foo';");
+    when(dir.getFile("index.js")).thenReturn(new CacheableString("exports.foo = 'foo';"));
     when(root.getFolder("dir")).thenReturn(dir);
     assertEquals("foo", ((Bindings) require.require("./dir")).get("foo"));
   }
@@ -201,8 +208,8 @@ public class ModuleTest {
   public void itCanLoadModulesSpecifyingOnlyTheFolderWhenIndexJsIsPresentEvenIfPackageJsonExists()
       throws Throwable {
     Folder dir = mock(Folder.class);
-    when(dir.getFile("package.json")).thenReturn("{ }");
-    when(dir.getFile("index.js")).thenReturn("exports.foo = 'foo';");
+    when(dir.getFile("package.json")).thenReturn(new CacheableString("{ }"));
+    when(dir.getFile("index.js")).thenReturn(new CacheableString("exports.foo = 'foo';"));
     when(root.getFolder("dir")).thenReturn(dir);
     assertEquals("foo", ((Bindings) require.require("./dir")).get("foo"));
   }
@@ -225,14 +232,16 @@ public class ModuleTest {
   @Test
   public void itUsesNodeModulesFromSubFolderForSubRequiresFromModuleInSubFolder() throws Throwable {
     when(sub1.getFile("sub1file1.js"))
-        .thenReturn("exports.sub1nmfile1 = require('sub1nmfile1').sub1nmfile1;");
+        .thenReturn(
+            new CacheableString("exports.sub1nmfile1 = require('sub1nmfile1').sub1nmfile1;"));
     assertEquals(
         "sub1nmfile1", ((Bindings) require.require("./sub1/sub1file1")).get("sub1nmfile1"));
   }
 
   @Test
   public void itLooksAtParentFoldersWhenTryingToResolveFromNodeModules() throws Throwable {
-    when(sub1.getFile("sub1file1.js")).thenReturn("exports.nmfile1 = require('nmfile1').nmfile1;");
+    when(sub1.getFile("sub1file1.js"))
+        .thenReturn(new CacheableString("exports.nmfile1 = require('nmfile1').nmfile1;"));
     assertEquals("nmfile1", ((Bindings) require.require("./sub1/sub1file1")).get("nmfile1"));
   }
 
@@ -249,7 +258,8 @@ public class ModuleTest {
 
   @Test
   public void thePathOfModulesContainsNoDots() throws Throwable {
-    when(root.getFile("file1.js")).thenReturn("exports.path = module.filename");
+    when(root.getFile("file1.js"))
+        .thenReturn(new CacheableString("exports.path = module.filename"));
     assertEquals(
         "/file1.js", ((Bindings) require.require("./sub1/.././sub1/../file1.js")).get("path"));
   }
@@ -316,7 +326,8 @@ public class ModuleTest {
   public void topLevelModulesExposeTheExpectedFields() throws Throwable {
     when(root.getFile("file1.js"))
         .thenReturn(
-            "exports._module = module; exports._exports = exports; exports._main = require.main; exports._filename = __filename; exports._dirname = __dirname;");
+            new CacheableString(
+                "exports._module = module; exports._exports = exports; exports._main = require.main; exports._filename = __filename; exports._dirname = __dirname;"));
 
     Bindings top = (Bindings) engine.eval("module");
     Bindings module = (Bindings) engine.eval("require('./file1')._module");
@@ -340,7 +351,8 @@ public class ModuleTest {
   public void subModulesExposeTheExpectedFields() throws Throwable {
     when(sub1.getFile("sub1file1.js"))
         .thenReturn(
-            "exports._module = module; exports._exports = exports; exports._main = require.main; exports._filename = __filename; exports._dirname = __dirname");
+            new CacheableString(
+                "exports._module = module; exports._exports = exports; exports._main = require.main; exports._filename = __filename; exports._dirname = __dirname"));
 
     Bindings top = (Bindings) engine.eval("module");
     Bindings module = (Bindings) engine.eval("require('./sub1/sub1file1')._module");
@@ -364,7 +376,8 @@ public class ModuleTest {
   public void subSubModulesExposeTheExpectedFields() throws Throwable {
     when(sub1sub1.getFile("sub1sub1file1.js"))
         .thenReturn(
-            "exports._module = module; exports._exports = exports; exports._main = require.main;");
+            new CacheableString(
+                "exports._module = module; exports._exports = exports; exports._main = require.main;"));
 
     Bindings top = (Bindings) engine.eval("module");
     Bindings module = (Bindings) engine.eval("require('./sub1/sub1/sub1sub1file1')._module");
@@ -384,8 +397,10 @@ public class ModuleTest {
   @Test
   public void requireInRequiredModuleYieldExpectedParentAndChildren() throws Throwable {
     when(root.getFile("file1.js"))
-        .thenReturn("exports._module = module; exports.sub = require('./sub1/sub1file1');");
-    when(sub1.getFile("sub1file1.js")).thenReturn("exports._module = module;");
+        .thenReturn(
+            new CacheableString(
+                "exports._module = module; exports.sub = require('./sub1/sub1file1');"));
+    when(sub1.getFile("sub1file1.js")).thenReturn(new CacheableString("exports._module = module;"));
 
     Bindings top = (Bindings) engine.eval("module");
     Bindings module = (Bindings) engine.eval("require('./file1')._module");
@@ -402,7 +417,8 @@ public class ModuleTest {
   @Test
   public void loadedIsFalseWhileModuleIsLoadingAndTrueAfter() throws Throwable {
     when(root.getFile("file1.js"))
-        .thenReturn("exports._module = module; exports._loaded = module.loaded;");
+        .thenReturn(
+            new CacheableString("exports._module = module; exports._loaded = module.loaded;"));
 
     Bindings top = (Bindings) engine.eval("module");
     Bindings module = (Bindings) engine.eval("require('./file1')._module");
@@ -422,7 +438,8 @@ public class ModuleTest {
 
   @Test
   public void loadingTheSameModuleFromASubModuleYieldsTheSameObject() throws Throwable {
-    when(root.getFile("file2.js")).thenReturn("exports.sub = require('./file1');");
+    when(root.getFile("file2.js"))
+        .thenReturn(new CacheableString("exports.sub = require('./file1');"));
     ScriptObjectMirror first = (ScriptObjectMirror) engine.eval("require('./file1');");
     ScriptObjectMirror second = (ScriptObjectMirror) engine.eval("require('./file2').sub;");
     assertTrue(ScriptObjectMirror.identical(first, second));
@@ -430,7 +447,8 @@ public class ModuleTest {
 
   @Test
   public void loadingTheSameModuleFromASubPathYieldsTheSameObject() throws Throwable {
-    when(sub1.getFile("sub1file1.js")).thenReturn("exports.sub = require('../file1');");
+    when(sub1.getFile("sub1file1.js"))
+        .thenReturn(new CacheableString("exports.sub = require('../file1');"));
     ScriptObjectMirror first = (ScriptObjectMirror) engine.eval("require('./file1');");
     ScriptObjectMirror second =
         (ScriptObjectMirror) engine.eval("require('./sub1/sub1file1').sub;");
@@ -439,14 +457,16 @@ public class ModuleTest {
 
   @Test
   public void scriptCodeCanReplaceTheModuleExportsSymbol() throws Throwable {
-    when(root.getFile("file1.js")).thenReturn("module.exports = { 'foo': 'bar' }");
+    when(root.getFile("file1.js"))
+        .thenReturn(new CacheableString("module.exports = { 'foo': 'bar' }"));
     assertEquals("bar", engine.eval("require('./file1').foo;"));
   }
 
   @Test
   public void itIsPossibleToRegisterGlobalVariablesForAllModules() throws Throwable {
     engine.put("bar", "bar");
-    when(root.getFile("file1.js")).thenReturn("exports.foo = function() { return bar; }");
+    when(root.getFile("file1.js"))
+        .thenReturn(new CacheableString("exports.foo = function() { return bar; }"));
     assertEquals("bar", engine.eval("require('./file1').foo();"));
   }
 
@@ -454,15 +474,19 @@ public class ModuleTest {
   public void engineScopeVariablesAreVisibleDuringModuleLoad() throws Throwable {
     engine.put("bar", "bar");
     when(root.getFile("file1.js"))
-        .thenReturn("var found = bar == 'bar'; exports.foo = function() { return found; }");
+        .thenReturn(
+            new CacheableString(
+                "var found = bar == 'bar'; exports.foo = function() { return found; }"));
     assertEquals(true, engine.eval("require('./file1').foo();"));
   }
 
   @Test
   public void itCanLoadModulesFromModulesFromModules() throws Throwable {
-    when(root.getFile("file1.js")).thenReturn("exports.sub = require('./file2.js');");
-    when(root.getFile("file2.js")).thenReturn("exports.sub = require('./file3.js');");
-    when(root.getFile("file3.js")).thenReturn("exports.foo = 'bar';");
+    when(root.getFile("file1.js"))
+        .thenReturn(new CacheableString("exports.sub = require('./file2.js');"));
+    when(root.getFile("file2.js"))
+        .thenReturn(new CacheableString("exports.sub = require('./file3.js');"));
+    when(root.getFile("file3.js")).thenReturn(new CacheableString("exports.foo = 'bar';"));
 
     assertEquals("bar", engine.eval("require('./file1.js').sub.sub.foo"));
   }
@@ -470,7 +494,8 @@ public class ModuleTest {
   // Check for https://github.com/coveo/nashorn-commonjs-modules/issues/2
   @Test
   public void itCanCallFunctionsNamedGetFromModules() throws Throwable {
-    when(root.getFile("file1.js")).thenReturn("exports.get = function(foo) { return 'bar'; };");
+    when(root.getFile("file1.js"))
+        .thenReturn(new CacheableString("exports.get = function(foo) { return 'bar'; };"));
 
     assertEquals("bar", engine.eval("require('./file1.js').get(123, 456)"));
   }
@@ -491,10 +516,12 @@ public class ModuleTest {
   public void anotherCheckForIssueNumber3() throws Throwable {
     when(root.getFile("file1.js"))
         .thenReturn(
-            "var a = require('./file2'); function b() {}; b.prototype = Object.create(a.prototype, {});");
+            new CacheableString(
+                "var a = require('./file2'); function b() {}; b.prototype = Object.create(a.prototype, {});"));
     when(root.getFile("file2.js"))
         .thenReturn(
-            "module.exports = a; function a() {}; a.prototype = Object.create(Object.prototype, {})");
+            new CacheableString(
+                "module.exports = a; function a() {}; a.prototype = Object.create(Object.prototype, {})"));
     require = Require.enable(engine, root);
     engine.eval("require('./file1');");
   }
@@ -502,14 +529,14 @@ public class ModuleTest {
   // Check for https://github.com/coveo/nashorn-commonjs-modules/issues/4
   @Test
   public void itSupportOverwritingExportsWithAString() throws Throwable {
-    when(root.getFile("file1.js")).thenReturn("module.exports = 'foo';");
+    when(root.getFile("file1.js")).thenReturn(new CacheableString("module.exports = 'foo';"));
     assertEquals("foo", engine.eval("require('./file1.js')"));
   }
 
   // Check for https://github.com/coveo/nashorn-commonjs-modules/issues/4
   @Test
   public void itSupportOverwritingExportsWithAnInteger() throws Throwable {
-    when(root.getFile("file1.js")).thenReturn("module.exports = 123;");
+    when(root.getFile("file1.js")).thenReturn(new CacheableString("module.exports = 123;"));
     assertEquals(123, engine.eval("require('./file1.js')"));
   }
 
@@ -546,14 +573,15 @@ public class ModuleTest {
   @Test
   public void itCanDefinePropertiesOnExportsObject() throws Throwable {
     when(root.getFile("file1.js"))
-        .thenReturn("Object.defineProperty(exports, '__esModule', { value: true });");
+        .thenReturn(
+            new CacheableString("Object.defineProperty(exports, '__esModule', { value: true });"));
     engine.eval("require('./file1.js')");
   }
 
   @Test
   public void itIncludesFilenameInException() throws Throwable {
     when(root.getFile("file1.js"))
-        .thenReturn("\n\nexports.foo = function() { throw \"bad thing\";};");
+        .thenReturn(new CacheableString("\n\nexports.foo = function() { throw \"bad thing\";};"));
     try {
       engine.eval("require('./file1').foo();");
       fail("should throw exception");
@@ -566,7 +594,20 @@ public class ModuleTest {
 
   @Test
   public void itCanLoadModulesWhoseLastLineIsAComment() throws Throwable {
-    when(root.getFile("file1.js")).thenReturn("exports.foo = \"bar\";\n// foo");
+    when(root.getFile("file1.js"))
+        .thenReturn(new CacheableString("exports.foo = \"bar\";\n// foo"));
     assertEquals("bar", engine.eval("require('./file1.js').foo"));
+  }
+
+  @Test
+  public void itCanUpdateModule() throws Throwable {
+    when(root.getCacheValidator("file1.js")).thenReturn("2");
+    when(root.getFile("file1.js"))
+        .thenReturn(new CacheableString("exports.foo = \"bar\";\n// foo", "1"))
+        .thenReturn(new CacheableString("exports.foo = \"foo\";\n// foo", "2"));
+    assertEquals("bar", engine.eval("require('./file1.js').foo"));
+    assertEquals("foo", engine.eval("require('./file1.js').foo"));
+    verify(root).getCacheValidator("file1.js");
+    verify(root, times(2)).getFile("file1.js");
   }
 }

@@ -12,6 +12,11 @@ public abstract class AbstractFolder implements Folder {
     return path;
   }
 
+  @Override
+  public String getCacheValidator(String name) {
+    return null;
+  }
+
   protected AbstractFolder(Folder parent, String path) {
     this.parent = parent;
     this.path = path;

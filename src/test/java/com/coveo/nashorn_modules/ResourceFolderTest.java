@@ -25,7 +25,7 @@ public class ResourceFolderTest {
 
   @Test
   public void getFileReturnsTheContentOfTheFileWhenItExists() {
-    assertTrue(root.getFile("foo.js").contains("foo"));
+    assertTrue(root.getFile("foo.js").getString().contains("foo"));
   }
 
   @Test
@@ -51,7 +51,7 @@ public class ResourceFolderTest {
 
   @Test
   public void getFileCanBeUsedOnSubFolderIfFileExist() {
-    assertTrue(root.getFolder("subdir").getFile("bar.js").contains("bar"));
+    assertTrue(root.getFolder("subdir").getFile("bar.js").getString().contains("bar"));
   }
 
   @Test

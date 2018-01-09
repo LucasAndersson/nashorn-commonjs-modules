@@ -22,7 +22,8 @@ public class Require {
     Bindings exports = engine.createBindings();
 
     Module created =
-        new Module(engine, folder, new ModuleCache(), "<main>", module, exports, null, null);
+        new Module(
+            engine, folder, new ModuleCache(), "<main>", module, exports, null, null, null, "");
     created.setLoaded();
 
     bindings.put("require", created);
