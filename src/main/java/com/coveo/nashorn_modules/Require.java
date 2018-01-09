@@ -23,7 +23,7 @@ public class Require {
 
     Module created =
         new Module(
-            engine, folder, new ModuleCache(), "<main>", module, exports, null, null, null, "");
+            engine, folder, new ModuleCache(), "<main>", module, exports, null, null, null, null);
     created.setLoaded();
 
     bindings.put("require", created);

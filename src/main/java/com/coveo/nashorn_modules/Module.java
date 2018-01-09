@@ -22,16 +22,13 @@ public class Module extends SimpleBindings implements RequireFunction {
   private ScriptObjectMirror objectConstructor;
   private ScriptObjectMirror jsonConstructor;
   private ScriptObjectMirror errorConstructor;
-
   private Folder folder;
   private ModuleCache cache;
-
   private Module main;
   private Bindings module;
   private List<Bindings> children = new ArrayList<>();
   private Object exports;
   private static ThreadLocal<Map<String, Bindings>> refCache = new ThreadLocal<>();
-
   private String cacheValidator;
 
   public Module(
@@ -75,10 +72,6 @@ public class Module extends SimpleBindings implements RequireFunction {
     module.put("id", filename);
     module.put("loaded", false);
     module.put("parent", parent != null ? parent.module : null);
-  }
-
-  public String getCacheValidator() {
-    return cacheValidator;
   }
 
   void setLoaded() {
@@ -182,10 +175,10 @@ public class Module extends SimpleBindings implements RequireFunction {
     Module found = cache.get(requestedFullPath);
 
     if (found != null) {
-      String effectivePath = found.getEffectivePath();
-      String cacheValidator = resolvedFolder.getCacheValidator(effectivePath);
+      String effectiveFileName = found.effectiveFileName;
+      String cacheValidator = resolvedFolder.getCacheValidator(effectiveFileName);
 
-      if (cacheValidator == null || cacheValidator.equals(found.getCacheValidator())) {
+      if (cacheValidator == null || cacheValidator.equals(found.cacheValidator)) {
         return found;
       }
     }
@@ -300,15 +293,15 @@ public class Module extends SimpleBindings implements RequireFunction {
   }
 
   private Module compileModuleAndPutInCache(
-      Folder parent, String fullPath, CacheableString code, String actualFileName)
+      Folder parent, String fullPath, CacheableString code, String effectiveFileName)
       throws ScriptException {
 
     Module created;
     String lowercaseFullPath = fullPath.toLowerCase();
     if (lowercaseFullPath.endsWith(".js")) {
-      created = compileJavaScriptModule(parent, fullPath, code, actualFileName);
+      created = compileJavaScriptModule(parent, fullPath, code, effectiveFileName);
     } else if (lowercaseFullPath.endsWith(".json")) {
-      created = compileJsonModule(parent, fullPath, code, actualFileName);
+      created = compileJsonModule(parent, fullPath, code, effectiveFileName);
     } else {
       // Unsupported module type
       return null;
@@ -322,7 +315,7 @@ public class Module extends SimpleBindings implements RequireFunction {
   }
 
   private Module compileJavaScriptModule(
-      Folder parent, String fullPath, CacheableString code, String actualFileName)
+      Folder parent, String fullPath, CacheableString code, String effectiveFileName)
       throws ScriptException {
 
     Bindings engineScope = engine.getBindings(ScriptContext.ENGINE_SCOPE);
@@ -345,7 +338,7 @@ public class Module extends SimpleBindings implements RequireFunction {
             exports,
             this,
             this.main,
-            actualFileName,
+            effectiveFileName,
             code.getCacheValidator());
 
     String[] split = Paths.splitPath(fullPath);
@@ -382,7 +375,7 @@ public class Module extends SimpleBindings implements RequireFunction {
   }
 
   private Module compileJsonModule(
-      Folder parent, String fullPath, CacheableString code, String actualFileName)
+      Folder parent, String fullPath, CacheableString code, String effectiveFileName)
       throws ScriptException {
     Bindings module = createSafeBindings();
     Bindings exports = createSafeBindings();
@@ -397,7 +390,7 @@ public class Module extends SimpleBindings implements RequireFunction {
             this,
             this.main,
             code.getCacheValidator(),
-            actualFileName);
+            effectiveFileName);
     created.exports = parseJson(code.getString());
     created.setLoaded();
     return created;
@@ -452,9 +445,5 @@ public class Module extends SimpleBindings implements RequireFunction {
 
   private static String[] getFilenamesToAttempt(String filename) {
     return new String[] {filename, filename + ".js", filename + ".json"};
-  }
-
-  public String getEffectivePath() {
-    return effectiveFileName;
   }
 }
